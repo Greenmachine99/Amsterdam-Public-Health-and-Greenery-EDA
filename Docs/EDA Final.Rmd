@@ -1,0 +1,532 @@
+---
+title: "Assessing the Relation between Health, Greenery and Living Environment in Amsterdam"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-10-09"
+---
+
+```{r setup, include=FALSE}
+
+### Checking Libraries
+library('rio')
+library('dplyr')
+library('ggplot2')
+
+### Importing Datasets
+population = import('amsterdam_population.csv')
+health = import('amsterdam_health.csv')
+public_space = import('amsterdam_publicspace.csv')
+housing = import('amsterdam_housing.csv')
+income = import('amsterdam_income.csv')
+social = import('amsterdam_social.csv')
+
+### Knitting Datasets Together
+health_pubspace = inner_join(health, public_space)
+pop_health = inner_join(population, health)
+pop_pubspace = inner_join(population, public_space)
+soc_health = inner_join(health, social)
+
+all_data = inner_join(pop_health, health_pubspace)
+all_data = inner_join(all_data, housing)
+all_data = inner_join(all_data, income)
+all_data = inner_join(all_data, social)
+
+```
+
+Pelle Kuppens, Annika Waltmann, Marta Nosowicz, Sam Groen
+
+## Introduction
+This report contains an analysis of available data about Amsterdam’s health and public space conditions. It is often said that health and wellbeing can be facilitated by the environments where people live (Barton & Grant, 2012). Discovering whether this statement applies in the selected city could cater to the improvement of both health of the citizens and quality of the public space. The aim is to inform the governing bodies of the city about the current situation regarding these topics and support policy development, innovation, and implementation.  
+
+The analysis was carried out by analysing five datasets obtained through the municipality of Amsterdam using the programme RStudio. The used datasets contain information about:
+
+* self-perceived health conditions (including, overall health, psychological health, loneliness, and obesity), 
+* perceived quality of public spaces and the relative amount of available hectares of greenery,
+* the population’s amount, age, gender and employment status
+
+In addition to that to better understand the results additional datasets were analysed. Looking into the information provided by them was important to understand the discovered trends in relations between health and public spaces. Those datasets included information about: income, housing, social facilities. 
+  Connecting information from all these fields is vital to understand the implications, concluding message, and support policy development, innovation, and implementation.  Furthermore, the analysis was guided by the following research questions: 
+
+* What is the relationship between the population’s health, greenery and living environment aesthetics of Amsterdam? 
+  + What is the correlation between public spaces and self-perceived good health, psychological health issues, loneliness and obesity per district? 
+  + What other variables could influence the relationship of the space to the state of health? 
+  
+In the table below we can find some general information about the datasets: 
+
+```{r Table Summarising Datasets, echo=FALSE, warning=FALSE, paged.print=TRUE}
+all_data %>%
+  filter(year == 2020) %>%
+  summarise(population = sum(pop_total),
+            avg_health = mean(hea_good),
+            avg_greenery = 100 * mean((pub_area_green / (pub_area_land + pub_area_water))),
+            avg_income = mean(inc_disposable),
+            tot_social_facilities = sum(soc_fac_cultural) + sum(soc_fac_sports),
+            avg_house_value = mean(hou_value)) 
+```
+
+The datasets can be grouped into different districts. Some general data about the districts can be found in the table below:
+
+```{r Table Summarising Districts, echo = FALSE, warning = FALSE}
+
+all_data %>% 
+  filter(year == 2020) %>%
+  group_by(district) %>%
+  summarise(population = sum(pop_total),
+            avg_health = mean(hea_good),
+            avg_greenery = mean((pub_area_green / (pub_area_land + pub_area_water))),
+            avg_income = mean(inc_disposable),
+            tot_social_facilities = sum(soc_fac_cultural) + sum(soc_fac_sports),
+            avg_hou_value = mean(hou_value)) %>%
+  arrange(desc(population))
+
+```
+
+## Exploration
+The aim of this part of the report is to briefly explore whether there are any vivid relationships between the population’s health, greenery and living environment aesthetics of Amsterdam. This part of the analysis was based on the often-stated claim that nature beautifies public spaces and can have a positive effect on health and well-being (de Vries, et.al., 2013) (Zuchocka, et.al., 2019).  
+
+Now, let’s look at the relationship between greenery and how the aesthetics of the environment are perceived:
+```{r Greenery vs Aesthetics, echo=FALSE, warning=FALSE, message = FALSE, fig.shown = 'hold', out.width = '33%'}
+
+public_space %>%
+  ggplot(aes(pub_green, fill = pub_setup)) +
+  geom_bar(position = 'fill') +
+  labs(x = 'Perceived Aesthetics of Greenery')
+
+public_space %>%
+  mutate(greenery_per = pub_area_green / (pub_area_land + pub_area_water)) %>%
+  ggplot(aes(pub_green, greenery_per, fill = pub_green)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  labs(x = 'Perceived Aesthetics Greenery', y = '% of Greenery')
+
+```
+
+As can be seen below on the left graph, the local environment is perceived as more beautiful when its greenery is perceived as more beautiful. In addition, as can be seen on the right, when there is relatively more greenery, the environment is perceived as more beautiful.   
+
+In addition, let's look at the relationship between the aesthetics of the local environment and all components of perceived health:
+```{r Aesthetics Environment vs Health, echo = FALSE, warning = FALSE, fig.show = 'hold', out.width = '25%'}
+
+  ggplot(health_pubspace, aes(hea_good, fill = pub_setup)) + 
+    geom_density(alpha = 0.2, position = 'identity') +
+  labs(x = '% of Population with Overall Good Health', y = '')
+
+  ggplot(health_pubspace, aes(hea_psych, fill = pub_setup)) + 
+    geom_density(alpha = 0.2, position = 'identity') +
+  labs(x = '% of Population with Psychological Health Issues', y = '')
+
+  ggplot(health_pubspace, aes(hea_lonely, fill = pub_setup)) + 
+    geom_density(alpha = 0.2, position = 'identity') +
+  labs(x = '% of Population who feel Lonely', y = '')
+  
+    ggplot(health_pubspace, aes(hea_overweight, fill = pub_setup)) + 
+    geom_density(alpha = 0.2, position = 'identity') +
+  labs(x = '% of Population with Obesity', y = '')
+  
+
+```
+
+As can be seen above, there does not seem to be a relation between the perceived aesthetics of the local environment and overall health and obesity. However, the two graphs in the middle do show that there might be a relation between psychological health and loneliness and the perceived aesthetics of the local environment. The question here is whether people with psycholigical health issues and loneliness tend to see reality through a black lense or not, which could affect the results.
+
+Let's now take a look at the average values for every district with regards to overall health, psychological health, loneliness and obesity compared to average public green area in the district:
+```{r Average per District, echo = FALSE, warning = FALSE, fig.shown = 'hold', out.width = '25%'}
+
+health_pubspace %>%
+    group_by(district) %>%
+    summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+              avg_health = mean(hea_good),
+              avg_psyhea = mean(hea_psych),
+              avg_lonely = mean(hea_lonely),
+              avg_obesity = mean(hea_overweight)) %>%
+    arrange(avg_greenery) %>%
+    ggplot(aes(avg_greenery, avg_health, color = district)) +
+    geom_point() + 
+    labs(x = 'Relative Greenery', y = 'Average % of Population with Good Health' )
+
+health_pubspace %>%
+    group_by(district) %>%
+    summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+              avg_health = mean(hea_good),
+              avg_psyhea = mean(hea_psych),
+              avg_lonely = mean(hea_lonely),
+              avg_obesity = mean(hea_overweight)) %>%
+    arrange(avg_greenery) %>%
+    ggplot(aes(avg_greenery, avg_psyhea, color = district)) +
+    geom_point() + 
+    labs(x = 'Relative Greenery', y = 'Average % of Population with Psychological Health Issues' )
+
+health_pubspace %>%
+    group_by(district) %>%
+    summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+              avg_health = mean(hea_good),
+              avg_psyhea = mean(hea_psych),
+              avg_lonely = mean(hea_lonely),
+              avg_obesity = mean(hea_overweight)) %>%
+    arrange(avg_greenery) %>%
+    ggplot(aes(avg_greenery, avg_lonely, color = district)) +
+    geom_point() + 
+    labs(x = 'Relative Greenery', y = 'Average % of Population who feel Lonely' )
+
+health_pubspace %>%
+    group_by(district) %>%
+    summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+              avg_health = mean(hea_good),
+              avg_psyhea = mean(hea_psych),
+              avg_lonely = mean(hea_lonely),
+              avg_obesity = mean(hea_overweight)) %>%
+    arrange(avg_greenery) %>%
+    ggplot(aes(avg_greenery, avg_obesity, color = district)) +
+    geom_point() + 
+    labs(x = 'Relative Greenery', y = 'Average % of Population with Obesity' )
+
+```
+
+In the graphs above, the average values for every district with regards to overall health, psychological health, loneliness and obesity compared to average of relative greenery in the district are shown. The graphs show that overall the perceived good health decreases and the psychological health issues, loneliness and obesity increases when the amount of greenery increases. This result contradicts existing literature, as mentioned in the introduction.
+
+Now, let's take a look into how the perception of the local environment has changed over the years for every district:
+```{r Progress Local Environment, echo = FALSE, warning = FALSE, fig.shown = 'hold', out.width = '50%'}
+
+public_space %>%
+  group_by(year) %>%
+  ggplot(aes(year, fill = pub_setup)) +
+  geom_bar(position = 'fill') + 
+  facet_wrap(~ district)
+
+```
+ 
+As can be seen, over a period of 6 years between 2015 and 2020 for most districts in Amsterdam the perceived quality of the living environment steadily increased with an exception of Zuidoost and Noord where the growth is extremely slow and uneven. It is interesting to see that not all districts have shown improvement, as we can now take a look into whether an improving environment and a deteriorating environment have opposite effects. Therefore, in our analysis we will take a closer look into the improving Nieuw-West district and the deteriorating Zuidoost district. 
+
+## Analysis
+The aim of this part of the research is to look further into the data and for other variables that might have an effect on health when comparing the different districts. The sub research question ‘What other variables could influence health?’ is answered.
+
+### Nieuw-West
+In Nieuw-West we can see several interesting patterns. First, it can be seen that the overall perception of the quality of the living environment in Nieuw-West over the years has been increasing. Second, the average health of the inhabitants of that district has been stable over the years. Third, there has been a slight decline in the percentage of inhabitants experiencing serious psychological issues and experiencing loneliness. The percentage of obese inhabitants of Nieuw-West has not changed over the years. 
+```{r Zoom In Nieuw West Pub Setup, echo = FALSE, warning = FALSE, fig.show = 'hold', out.width = '20%'}
+
+  ## Set Up Progress
+  health_pubspace %>%
+    filter(district == 'F Nieuw-West') %>%
+    ggplot(aes(year, fill = pub_setup)) +
+    geom_bar() 
+
+  ## Overall Health
+  health_pubspace %>%
+    filter(district == 'F Nieuw-West') %>%
+    ggplot(aes(year, hea_good, group = year)) +
+    geom_boxplot() + 
+    labs(y = '% of Population with Good Health')
+  ## Psych Health
+  health_pubspace %>%
+    filter(district == 'F Nieuw-West') %>%
+    ggplot(aes(year, hea_psych, group = year)) +
+    geom_boxplot() +
+    labs(y = '% of Population with Psychological Health Issues')
+  ## Loneliness
+  health_pubspace %>%
+    filter(district == 'F Nieuw-West') %>%
+    ggplot(aes(year, hea_lonely, group = year)) +
+    geom_boxplot() + 
+    labs(y = '% of Population who feel Lonely')
+  ## Obisety
+    health_pubspace %>%
+    filter(district == 'F Nieuw-West') %>%
+    ggplot(aes(year, hea_overweight, group = year)) +
+    geom_boxplot() + 
+    labs(y = '% of Population with Obesity')
+
+```
+
+When we look at the averages per neighborhood with regards to health, psychological health, loneliness and obesity compared to average public green area, we see that the results contradict earlier results from the district averages, as there is no clear relation to be found in any of the health components.
+```{r Zoom In Nieuw West Greenery, echo = FALSE, warning = FALSE, fig.show = 'hold', out.width = '25%'}
+
+health_pubspace %>%
+  filter(district == 'F Nieuw-West') %>%
+  group_by(neighborhood) %>%
+  summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+                avg_health = mean(hea_good),
+                avg_psyhea = mean(hea_psych),
+                avg_obese = mean(hea_overweight),
+                avg_lone = mean(hea_lonely)) %>%
+  ggplot(aes(avg_greenery, avg_health)) + 
+  geom_point() + 
+  labs(x = 'Relative Greenery', y = '% of Population with Good Health')
+
+health_pubspace %>%
+  filter(district == 'F Nieuw-West') %>%
+  group_by(neighborhood) %>%
+  summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+                avg_health = mean(hea_good),
+                avg_psyhea = mean(hea_psych),
+                avg_obese = mean(hea_overweight),
+                avg_lone = mean(hea_lonely)) %>%
+  ggplot(aes(avg_greenery, avg_psyhea)) + 
+  geom_point() +
+  labs(x = 'Relative Greenery', y = '% of Population with Psychological Health Issues')
+
+health_pubspace %>%
+  filter(district == 'F Nieuw-West') %>%
+  group_by(neighborhood) %>%
+  summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+                avg_health = mean(hea_good),
+                avg_psyhea = mean(hea_psych),
+                avg_obese = mean(hea_overweight),
+                avg_lone = mean(hea_lonely)) %>%
+  ggplot(aes(avg_greenery, avg_lone)) + 
+  geom_point() + 
+  labs(x = 'Relative Greenery', y = '% of Population who feel Lonely')
+
+health_pubspace %>%
+  filter(district == 'F Nieuw-West') %>%
+  group_by(neighborhood) %>%
+  summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+                avg_health = mean(hea_good),
+                avg_psyhea = mean(hea_psych),
+                avg_obese = mean(hea_overweight),
+                avg_lone = mean(hea_lonely)) %>%
+  ggplot(aes(avg_greenery, avg_obese)) + 
+  geom_point() + 
+  labs(x = 'Relative Greenery', y = '% of Population with Obesity')
+
+```
+
+### Zuidoost
+For Zuidoost, we see also see several interesting patterns. First it can be seen that in Zuidoost the perception of the quality of the public space has deteriorated over the years. Second, it can be seen that there was a small, yet significant fluctuation of self-perceived health in the district over the years. Third, the percentage of inhabitants facing serious psychological issues and experiencing loneliness has been stable over the years. Finally, the percentage of obese people (ranked high) has remained the same over the years.
+```{r Zoom In Zuidoost Pub Setup, echo = FALSE, warning = FALSE, fig.show = 'hold', out.width = '20%'}
+
+  ## Set Up Progress
+  health_pubspace %>%
+    filter(district == 'T Zuidoost') %>%
+    ggplot(aes(year, fill = pub_setup)) +
+    geom_bar()
+
+  ## Overall Health
+  health_pubspace %>%
+    filter(district == 'T Zuidoost') %>%
+    ggplot(aes(year, hea_good, group = year)) +
+    geom_boxplot() + 
+    labs(y = '% of Population with Good Health')
+  ## Psych Health
+  health_pubspace %>%
+    filter(district == 'T Zuidoost') %>%
+    ggplot(aes(year, hea_psych, group = year)) +
+    geom_boxplot() + 
+    labs(y = '% of Population with Psychological Health Issues')
+  ## Loneliness
+  health_pubspace %>%
+    filter(district == 'T Zuidoost') %>%
+    ggplot(aes(year, hea_lonely, group = year)) +
+    geom_boxplot() + 
+    labs(y = '% of Population who feel Lonely')
+  ## Obisety
+    health_pubspace %>%
+    filter(district == 'T Zuidoost') %>%
+    ggplot(aes(year, hea_overweight, group = year)) +
+    geom_boxplot() + 
+    labs(y = '% of Population with Obesity')
+
+```
+
+The same results can be observed as in Nieuw-West when we look at average overall health, psychological health, loneliness and obesity compared to average public green area, as we do not see any significant correlation in the graphs below. 
+```{r Zoom In Zuidoost Greenery, echo = FALSE, warning = FALSE, fig.show = 'hold', out.width = '25%'}
+
+health_pubspace %>%
+  filter(district == 'T Zuidoost') %>%
+  group_by(neighborhood) %>%
+  summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+                avg_health = mean(hea_good),
+                avg_psyhea = mean(hea_psych),
+                avg_obese = mean(hea_overweight),
+                avg_lone = mean(hea_lonely)) %>%
+  ggplot(aes(avg_greenery, avg_health)) + 
+  geom_point() + 
+  labs(x = 'Relative Greenery', y = '% of Population with Good Health')
+
+health_pubspace %>%
+  filter(district == 'T Zuidoost') %>%
+  group_by(neighborhood) %>%
+  summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+                avg_health = mean(hea_good),
+                avg_psyhea = mean(hea_psych),
+                avg_obese = mean(hea_overweight),
+                avg_lone = mean(hea_lonely)) %>%
+  ggplot(aes(avg_greenery, avg_psyhea)) + 
+  geom_point() +  
+  labs(x = 'Relative Greenery', y = '% of Population with Psychological Health Issues')
+
+health_pubspace %>%
+  filter(district == 'T Zuidoost') %>%
+  group_by(neighborhood) %>%
+  summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+                avg_health = mean(hea_good),
+                avg_psyhea = mean(hea_psych),
+                avg_obese = mean(hea_overweight),
+                avg_lone = mean(hea_lonely)) %>%
+  ggplot(aes(avg_greenery, avg_lone)) + 
+  geom_point() + 
+  labs(x = 'Relative Greenery', y = '% of Population who feel Lonely')
+
+health_pubspace %>%
+  filter(district == 'T Zuidoost') %>%
+  group_by(neighborhood) %>%
+  summarise(avg_greenery = mean(pub_area_green / (pub_area_land + pub_area_water)),
+                avg_health = mean(hea_good),
+                avg_psyhea = mean(hea_psych),
+                avg_obese = mean(hea_overweight),
+                avg_lone = mean(hea_lonely)) %>%
+  ggplot(aes(avg_greenery, avg_obese)) + 
+  geom_point() + 
+  labs(x = 'Relative Greenery', y = '% of Population with Obesity')
+
+```
+
+The correlation between the perceived beauty of the living environment and self-perceived good health, psycological health issues, loneliness and obesity is unclear, because the districts don't show any significant correlations in the corresponding graphs. 
+
+### Third Variables
+As the results of our analysis into the relationship into health, greenery and local environment does not yield clear results we take a look at several other variables that might impact health. 
+
+#### Health vs Wealth
+A variable that is analysed is wealth, this is done with data about disposable income and house value. One of the important factors reoccurring in literature that is said to have an impact on health and well-being of a population is wealth (Wagstaff & van Doorslear, 2000). People with higher incomes are not only more likely to easier access proper healthcare and thus be able to better manage their mental and physical well-being but are also able to provide healthier food and various forms of exercise for themselves which have an overall positive influence on a person. The data shows a clear correlation between the house value in districts and the health in districts, as the districts are arranged from lowest average disposable income to highest. This correlation is clearer than the correlation between health and public spaces. Wealth could be the reason why the data showed contradictions. 
+```{r Income vs Health, echo = FALSE, warning = FALSE, fig.show = 'hold', out.width = '25%'}
+
+ggplot(all_data, aes(reorder(district, inc_disposable, FUN = median), hea_good)) +
+  geom_boxplot() + 
+  labs(x = '', y = "% of Population with Good Health") + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(all_data, aes(reorder(district, inc_disposable, FUN = median), hea_psych)) +
+  geom_boxplot() + 
+  labs(x = '', y = "% of Population with Psychological Health Issues") + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(all_data, aes(reorder(district, inc_disposable, FUN = median), hea_lonely)) +
+  geom_boxplot() + 
+  labs(x = '', y = "% of Population who feel Lonely") + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(all_data, aes(reorder(district, inc_disposable, FUN = median), hea_overweight)) +
+  geom_boxplot() + 
+  labs(x = '', y = "% of Population with Obesity") + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+```
+
+```{r Housing Value va Health, echo = FALSE, warning = FALSE, fig.show = 'hold', out.width = '25%'}
+
+ggplot(all_data, aes(reorder(district, hou_value, FUN = median), hea_good)) +
+  geom_boxplot() + 
+  labs(x = '', y = "% of Population with Good Health") + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) 
+
+ggplot(all_data, aes(reorder(district, hou_value, FUN = median), hea_psych)) +
+  geom_boxplot() + 
+  labs(x = '', y = "% of Population with Psychological Health Issues") + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(all_data, aes(reorder(district, hou_value, FUN = median), hea_lonely)) +
+  geom_boxplot() + 
+  labs(x = '', y = "% of Population who feel Lonely") + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(all_data, aes(reorder(district, hou_value, FUN = median), hea_overweight)) +
+  geom_boxplot() + 
+  labs(x = '', y = "% of Population with Obesity") + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+```
+
+#### Health & Social Facilities
+The second possible influential variable that is analysed is the amount of social facilities. Social facilities could influence health as they facilitate sports, which is often considered healthy behavior, and/or social connections, which could reduce psychological illnesses and loneliness. The data shows a very clear correlation between health and the amount of social facilities. This could possibly have influenced the outcomes of the research. 
+```{r Overall Health vs Social Facilities, echo = FALSE, warning = FALSE, fig.show = 'hold', out.width = '25%'}
+
+soc_health %>%
+  mutate(tot_facilities = soc_fac_cultural + soc_fac_sports) %>%
+  ggplot(aes(tot_facilities, hea_good)) + 
+  geom_point(alpha = 0.1) +
+  geom_smooth(method = 'loess', formula = y ~ x) +
+  labs(x = 'Total Social Facilities', y = "% of Population with Good Health")
+
+soc_health %>%
+  mutate(tot_facilities = soc_fac_cultural + soc_fac_sports) %>%
+  ggplot(aes(tot_facilities, hea_psych)) + 
+  geom_point(alpha = 0.1) +
+  geom_smooth(method = 'loess', formula = y ~ x) +
+  labs(x = 'Total Social Facilities', y = "% of Population with Psychological Health Issues")
+
+soc_health %>%
+  mutate(tot_facilities = soc_fac_cultural + soc_fac_sports) %>%
+  ggplot(aes(tot_facilities, hea_lonely)) + 
+  geom_point(alpha = 0.1) +
+  geom_smooth(method = 'loess', formula = y ~ x) +
+  labs(x = 'Total Social Facilities', y = "% of Population who feel Lonely")
+
+soc_health %>%
+  mutate(tot_facilities = soc_fac_cultural + soc_fac_sports) %>%
+  ggplot(aes(tot_facilities, hea_overweight)) + 
+  geom_point(alpha = 0.1) +
+  geom_smooth(method = 'loess', formula = y ~ x) +
+  labs(x = 'Total Social Facilities', y = "% of Population with Obesity")
+
+```
+
+#### Health vs Age
+The last variable is age. Often, as people get older they develop more health issues and are also increasingly isolated from society. In the graphs below the district are ordered on percentage of residents above 60 years old, with the most left having the least percentage of residents above 60 years old. No clear correlation is visible in the data as a clear trend line is missing. The variable age has probably not had an effect on the results of the research. 
+
+```{r Overall Health vs Age, echo = FALSE, warning = FALSE, fig.show = 'hold', out.width = '25%'}
+
+pop_health %>%
+  mutate(elder_pop = (pop_60_69 + pop_70_79 + pop_80_89 + pop_90) / pop_total) %>%
+  ggplot(aes(reorder(district, elder_pop, FUN = mean), hea_good)) +
+  geom_boxplot() +
+  labs(x = '', y = '% of Population with Good Health') + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+pop_health %>%
+  mutate(elder_pop = (pop_60_69 + pop_70_79 + pop_80_89 + pop_90) / pop_total) %>%
+  ggplot(aes(reorder(district, elder_pop, FUN = mean), hea_psych)) +
+  geom_boxplot() +
+  labs(x = '', y = '% of Population with Psychological Health Issues') + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+pop_health %>%
+  mutate(elder_pop = (pop_60_69 + pop_70_79 + pop_80_89 + pop_90) / pop_total) %>%
+  ggplot(aes(reorder(district, elder_pop, FUN = mean), hea_lonely)) +
+  geom_boxplot() +
+  labs(x = '', y = '% of Population who feel Lonely') + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+pop_health %>%
+  mutate(elder_pop = (pop_60_69 + pop_70_79 + pop_80_89 + pop_90) / pop_total) %>%
+  ggplot(aes(reorder(district, elder_pop, FUN = mean), hea_overweight)) +
+  geom_boxplot() +
+  labs(x = '', y = '% of Population with Obesity') + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+```
+
+## Interpretation
+Some results of the analysis of the data reveal the relationship between the social status and health quality among inhabitants. In richer districts of Amsterdam people are more likely to perceive their health as good.  
+Additionally, a living space can be perceived as more beautiful if the quality of the green space within that area rises. The perceived aesthetic of the living environment is especially connected to variables such as loneliness and psychological health. However, the absolute amount of greenery in the living environment is not directly correlated to the quality of living space or directly to health, more so the relative amount of greenery. 
+These statements are concluded in the fact that for example Centrum and Zuid are the two richest districts, with relatively high amounts of greenery (yet not highest) and are perceived to have the most beautiful living environments (perhaps due to the architectural or historical values). Health levels in those districts are the highest yet it is also important to remember that those are the richest districts where people can afford higher standards of living and therefore better health.   
+
+## Implication
+There are several implications that arise as a direction for policy creation for the municipality of Amsterdam. From our analysis, it can be concluded that improvements in aesthetics of the living environment does not lead to better health. However, the municipality could improve the aesthetics of living environments by increasing the relative amount of greenery, as well as the quality of greenery.  
+In poor districts where health is poor, but amount of greenery is high it might be beneficial to at least increase the quality of that greenery. This might have an impact on the perceived quality of the living environment. 
+Considering that income is also a significant underlaying factor for health focusing on providing higher quality education and job opportunities to increase health and well-being in the poorest districts. Providing better quality education should improve chances of getting high paying jobs and thus more wealth in the long term. 
+Another potential solution would be for the municipality to make sure that in poorer neighborhoods there are sufficient and diverse social facilities. These facilities enable people to engage in social facilities which could reduce loneliness, obesity and psychological issues, while also increasing overall health. 
+
+## Conclusion
+At first, the interpretation of the exploratory analysis was that greenery and health had a negative correlation as the data on district averages showed that as there was relatively more greenery, all health components deteriorated. As can be interpreted from our analysis, there is no clear (causal) relationship between health and greenery. In addition, the perceived aesthetics of the environment also do not have a relationship with health.  
+To conclude, the relationship between health, greenery, and living environment aesthetics in Amsterdam is unclear. When a look was taken into other variables that might affect health, wealth and the availability of social facilities provided a clearer explanation. 
+ 
+A limitation to the interpretation of the data is that with regards to the density plots it is difficult to predict whether it is that the population who has poor mental health tends to assess their surroundings as poor because they are mentally ill, or is it that the environment influences the mental health of the population. Furthermore, private green areas are not included in the calculations and that fact might influence the results. In addition, travel patterns are an important factor that might affect the reliability of the study as people cross districts to reach various facilities, parks, etc. These limitations not being included within the calculations pose a view that’s not completely sufficient. 
+Finally, it is important to state that due to the fact that this data comes from a secondary source and answers were gathered by a third party its validity can be questionable. It is difficult to rely on some variables as their description is unclear and might contain different answers than expected and the method of measurement is unknown.   
+
+## References
+
+Barton, H., & Grant, M. (2012). Urban Planning for Healthy Cities. Journal of urban health, pp. 129-141. 
+
+de Vries, S., van Dillen, S. M., Groenewegen, P. P., & Spreeuwenberg, P. (2013). Streetscape greenery and health: Stress, social cohesion and physical. Social Science & Medicine, pp. 26-33. 
+
+Wagstaff, A., & van Doorslear, E. (2000). Income inequality and health: what does the literature tell us? Annual review of public health, pp. 543-567. 
+
+Zuchocka, M., Kimic, K., Błaszczyk, M., & Kołodyńska, N. (2019). Designing hotspots in the public spaces and public greenery of modern cities – selected issues. Ecological Questions, pp. 83-91. 
